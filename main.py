@@ -23,27 +23,28 @@ import sys
 import datetime
 from argh import *
 
-print('----FFB2FS2FFB: FireFox Bookmarks to the File System and back')
-print('    See: http://github.com/sdvillal/ffb2fs2ffb')
+print("----FFB2FS2FFB: FireFox Bookmarks to the File System and back")
+print("    See: http://github.com/sdvillal/ffb2fs2ffb")
 sys.stdout.flush()
 
-TEST_DIR = op.join(op.realpath(op.dirname(__file__)), 'test-data')
-TEST_BOOKMARKS_FILEPATH = op.join(TEST_DIR, 'bookmarks-2013-02-20.json')
-TEST_DESTDIR_PATH = op.join(TEST_DIR, 'ff2fs_test')
-TEST_DESTBOOKMARKS_FILEPATH = op.join(TEST_DIR, 'reconstructed-bookmarks.json')
-CONTAINER_FILE_NAME = '__info__.ffcontainer'
+TEST_DIR = op.join(op.realpath(op.dirname(__file__)), "test-data")
+TEST_BOOKMARKS_FILEPATH = op.join(TEST_DIR, "bookmarks-2013-02-20.json")
+TEST_DESTDIR_PATH = op.join(TEST_DIR, "ff2fs_test")
+TEST_DESTBOOKMARKS_FILEPATH = op.join(TEST_DIR, "reconstructed-bookmarks.json")
+CONTAINER_FILE_NAME = "__info__.ffcontainer"
 
 ############################
-#---- Supporting functions
+# ---- Supporting functions
 ############################
+
 
 def ensure_writable_dir(path):
     """Ensures that a path is a writable directory."""
     if op.exists(path):
         if not op.isdir(path):
-            raise Exception('%s exists but it is not a directory' % path)
+            raise Exception("%s exists but it is not a directory" % path)
         if not os.access(path, os.W_OK):
-            raise Exception('%s is a directory but it is not writable' % path)
+            raise Exception("%s is a directory but it is not writable" % path)
     else:
         os.makedirs(path)
 
@@ -60,9 +61,9 @@ def slugify(value, max_filename_length=200):
     See too: http://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits.
     """
     value = str(value)
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = str(re.sub('[^\w\s-]', '', str(value)).strip().lower())
-    value = str(re.sub('[-\s]+', '-', value))
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
+    value = str(re.sub("[^\w\s-]", "", str(value)).strip().lower())
+    value = str(re.sub("[-\s]+", "-", value))
     if len(value) > max_filename_length:
         return value[:max_filename_length]
     return value
@@ -94,44 +95,43 @@ def datetime2prtime(adatetime):
 
     def td_to_microseconds(td):
         """Converts a datetime.timedelta to microseconds."""
-        return td.days * 24 * 60 * 60 * 1000000 + \
-               td.seconds * 1000000 + \
-               td.microseconds
+        return td.days * 24 * 60 * 60 * 1000000 + td.seconds * 1000000 + td.microseconds
 
     return td_to_microseconds(adatetime - datetime.datetime(1970, 1, 1))
 
 
 def node_filename(node):
     """Returns a valid filename based on a bookmark title and its id."""
-    return '%s__ffid=%s' % (slugify(node['title']), node['id'])
+    return "%s__ffid=%s" % (slugify(node["title"]), node["id"])
 
 
 def generate_container_dict(
-        title=None,
-        description=None,
-        container_id=None,
-        dateAdded=None,
-        lastModified=None,
-        root=None,
-        index=None,
-        parent=None,
-        annos=None,
-        children=None):
+    title=None,
+    description=None,
+    container_id=None,
+    dateAdded=None,
+    lastModified=None,
+    root=None,
+    index=None,
+    parent=None,
+    annos=None,
+    children=None,
+):
     """Generates a container dictionary with the specified information."""
-    translator = {'container_id': 'id'}
-    container = {'type': 'text/x-moz-place-container'}
+    translator = {"container_id": "id"}
+    container = {"type": "text/x-moz-place-container"}
     for key, val in locals().items():
-        if not key in ('translator', 'container') and val is not None:
+        if not key in ("translator", "container") and val is not None:
             container[translator.get(key, key)] = val
     return container
 
 
 def is_bookmark(node):
-    return node.get('type', None) == 'text/x-moz-place'
+    return node.get("type", None) == "text/x-moz-place"
 
 
 def is_container(node):
-    return node.get('type', None) == 'text/x-moz-place-container'
+    return node.get("type", None) == "text/x-moz-place-container"
 
 
 def traverse_tree(root, nodef, with_parent: bool = False):
@@ -140,16 +140,20 @@ def traverse_tree(root, nodef, with_parent: bool = False):
     """
     # args, _, _, _ = inspect.getargs(nodef)
     if not with_parent:
+
         def traverse_without_parent(root):
             nodef(root)
-            for child in root.get('children', ()):
+            for child in root.get("children", ()):
                 traverse_without_parent(child)
+
         traverse_without_parent(root)
     else:
+
         def traverse_with_parent(root, parent):
             nodef(root, parent)
-            for child in root.get('children', ()):
+            for child in root.get("children", ()):
                 traverse_with_parent(child, root)
+
         traverse_with_parent(root, None)
 
 
@@ -158,11 +162,11 @@ def present_ids(root, all_must_have_id=False, all_must_be_unique=False):
     nids = set()
 
     def add_id(node):
-        nid = node.get('id', None)
+        nid = node.get("id", None)
         if all_must_have_id and not nid:
-            raise Exception('Found a node without ID! %r' % node)
+            raise Exception("Found a node without ID! %r" % node)
         if all_must_be_unique and nid in nids:
-            raise Exception('Found a repeated ID! %s' % nid)
+            raise Exception("Found a repeated ID! %s" % nid)
         nids.add(nid)
 
     traverse_tree(root, add_id, with_parent=False)
@@ -175,9 +179,9 @@ def uniquify_ids(root):
     last_assigned = [2]
 
     def assign_id(node, parent):
-        node['id'] = last_assigned[0]  #Missing python 3 nonlocal...
+        node["id"] = last_assigned[0]  # Missing python 3 nonlocal...
         if parent:
-            node['parent'] = parent['id']
+            node["parent"] = parent["id"]
         last_assigned[0] += 1
 
     traverse_tree(root, assign_id, with_parent=True)
@@ -189,135 +193,161 @@ def present_keys(root, process_containers=True, process_bookmarks=True):
     keys = set()
 
     def add_key(node):
-        if process_containers and is_container(node) or process_bookmarks and is_bookmark(node):
+        if (
+            process_containers
+            and is_container(node)
+            or process_bookmarks
+            and is_bookmark(node)
+        ):
             keys.update(list(node.keys()))
 
     traverse_tree(root, add_key, with_parent=False)
     return keys
 
+
 ############################
-#---- Firefox bookmarks json -> filesystem hierarchy
+# ---- Firefox bookmarks json -> filesystem hierarchy
 ############################
-def bookmarks2dir(bookmarks_file=TEST_BOOKMARKS_FILEPATH,
-                  dest_dir=TEST_DESTDIR_PATH,
-                  delete_all_first=False,
-                  overwrite=False):
+def bookmarks2dir(
+    bookmarks_file=TEST_BOOKMARKS_FILEPATH,
+    dest_dir=TEST_DESTDIR_PATH,
+    delete_all_first=False,
+    overwrite=False,
+):
     """Mirrors a firefox bookmarks json file into the file-system, one dir per container, one file per bookmark."""
 
-    print('Mirroring bookmarks from\n\t%s\nto\n\t%s'%(bookmarks_file, dest_dir))
+    print("Mirroring bookmarks from\n\t%s\nto\n\t%s" % (bookmarks_file, dest_dir))
 
     if not op.isfile(bookmarks_file):
-        raise Exception('Cannot find bookmarks file: %s' % bookmarks_file)
+        raise Exception("Cannot find bookmarks file: %s" % bookmarks_file)
 
-    #Delete the root_dir
+    # Delete the root_dir
     if op.isdir(dest_dir):
-        print('Warning: root dir \"%s\" already exists' % dest_dir)
+        print('Warning: root dir "%s" already exists' % dest_dir)
     if delete_all_first and op.isdir(dest_dir):
-        print('Removing the root dir \"%s\"' % dest_dir)
+        print('Removing the root dir "%s"' % dest_dir)
         shutil.rmtree(dest_dir)
 
     def build_tree(entry, root_dir, seen_ids):
         """Traverses the FFs bookmark tree, mirroring its structure in the file-system."""
 
         def check_id_uniqueness(entry):
-            entry_id = entry.get('id', None)
+            entry_id = entry.get("id", None)
             if entry_id is None:
-                raise Exception('Found an entry without id!')
+                raise Exception("Found an entry without id!")
             if entry_id in seen_ids:
-                raise Exception('id %s is not unique' % entry_id)
+                raise Exception("id %s is not unique" % entry_id)
             seen_ids.add(entry_id)
 
-        #Write the container node
+        # Write the container node
         if not is_container(entry):
-            raise Exception('The entry type for %s must be a moz-place-container' % entry.get('id', '!!unknownid!!'))
+            raise Exception(
+                "The entry type for %s must be a moz-place-container"
+                % entry.get("id", "!!unknownid!!")
+            )
         check_id_uniqueness(entry)
         container_file = op.join(root_dir, CONTAINER_FILE_NAME)
         if op.exists(container_file) and not overwrite:
-            raise Exception('The container file %s already exists. Please, change \"overwrite\" or delete dest_dir.')
+            raise Exception(
+                'The container file %s already exists. Please, change "overwrite" or delete dest_dir.'
+            )
         ensure_writable_dir(root_dir)
-        children = entry.get('children', ())
-        entry['children'] = ()
-        with open(container_file, 'wb') as writer:
+        children = entry.get("children", ())
+        entry["children"] = ()
+        with open(container_file, "wb") as writer:
             pickle.dump(entry, writer)
-        #Process children
+        # Process children
         for child in children:
             if is_container(child):
                 build_tree(child, op.join(root_dir, node_filename(child)), seen_ids)
             elif is_bookmark(child):
                 check_id_uniqueness(child)
-                if child.get('children', None):
-                    raise Exception('A moz-place node should have no children, but \"%s\" has' % child['title'])
-                ffurl = op.join(root_dir, node_filename(child) + '.ffurl')
-                with open(ffurl, 'wb') as writer:
+                if child.get("children", None):
+                    raise Exception(
+                        'A moz-place node should have no children, but "%s" has'
+                        % child["title"]
+                    )
+                ffurl = op.join(root_dir, node_filename(child) + ".ffurl")
+                with open(ffurl, "wb") as writer:
                     pickle.dump(child, writer)
 
-    #Mirror the bookmarks structure into the hard disk
+    # Mirror the bookmarks structure into the hard disk
     with open(bookmarks_file) as reader:
         build_tree(json.load(reader), dest_dir, set())
 
-    print('Done!')
+    print("Done!")
+
 
 ############################
-#---- Filesystem hierarchy -> firefox bookmarks
+# ---- Filesystem hierarchy -> firefox bookmarks
 ############################
-def dir2bookmarks(src_dir=TEST_DESTDIR_PATH,
-                  dest_bookmarks_file=TEST_DESTBOOKMARKS_FILEPATH):
+def dir2bookmarks(
+    src_dir=TEST_DESTDIR_PATH, dest_bookmarks_file=TEST_DESTBOOKMARKS_FILEPATH
+):
     """Takes a directory and mirrors its structure into firefox bookmarks json."""
 
-    print('Mirroring bookmarks from\n\t%s\nto\n\t%s'%(src_dir, dest_bookmarks_file))
+    print("Mirroring bookmarks from\n\t%s\nto\n\t%s" % (src_dir, dest_bookmarks_file))
 
     def update_title(fn, entry):
-        if op.basename(fn).partition('__')[0] != slugify(entry['title']):
-            entry['title'] = op.basename(fn).partition('__')[0].replace('\"', '\'')
+        if op.basename(fn).partition("__")[0] != slugify(entry["title"]):
+            entry["title"] = op.basename(fn).partition("__")[0].replace('"', "'")
 
     def read_container(root_dir):
         if not op.isdir(root_dir):
-            raise Exception('%s should be a directory, but it is not' % root_dir)
+            raise Exception("%s should be a directory, but it is not" % root_dir)
         container_file = op.join(root_dir, CONTAINER_FILE_NAME)
         if op.exists(container_file):
-            with open(container_file, 'rb') as reader:
+            with open(container_file, "rb") as reader:
                 this_container = pickle.load(reader)
         else:
             this_container = generate_container_dict(
                 title=op.basename(root_dir),
-                dateAdded=datetime2prtime(datetime.datetime.fromtimestamp(op.getmtime(root_dir))),
-                lastModified=datetime2prtime(datetime.datetime.fromtimestamp(op.getctime(root_dir))))
+                dateAdded=datetime2prtime(
+                    datetime.datetime.fromtimestamp(op.getmtime(root_dir))
+                ),
+                lastModified=datetime2prtime(
+                    datetime.datetime.fromtimestamp(op.getctime(root_dir))
+                ),
+            )
         ff_children = []
         fs_children = [op.join(root_dir, fn) for fn in os.listdir(root_dir)]
         fs_children.sort(key=op.getmtime)
         for fs_child in fs_children:
             if op.isdir(fs_child):
                 ff_children.append(read_container(fs_child))
-            elif fs_child.endswith('.ffurl'):
-                with open(fs_child, 'rb') as reader:
+            elif fs_child.endswith(".ffurl"):
+                with open(fs_child, "rb") as reader:
                     bookmark = pickle.load(reader)
                     update_title(fs_child, bookmark)
                     ff_children.append(bookmark)
-        this_container['children'] = ff_children
+        this_container["children"] = ff_children
         update_title(root_dir, this_container)
         return this_container
 
-    #Very simple, read the dirs and files into a dict, jsondumpit
-    with open(dest_bookmarks_file, 'w') as writer:
-        json.dump(uniquify_ids(read_container(src_dir)),
-                  writer,
-                  ensure_ascii=True,
-                  separators=(',', ':'),
-                  check_circular=True)
+    # Very simple, read the dirs and files into a dict, jsondumpit
+    with open(dest_bookmarks_file, "w") as writer:
+        json.dump(
+            uniquify_ids(read_container(src_dir)),
+            writer,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            check_circular=True,
+        )
 
-    print('Done!')
+    print("Done!")
+
 
 ############################
-#---- Open a pickled ffurl in firefox
+# ---- Open a pickled ffurl in firefox
 ############################
 def open_ffurl(ffurl):
     """Opens the URI in a .ffurl bookmark file inside the browser."""
-    with open(ffurl, 'rb') as reader:
+    with open(ffurl, "rb") as reader:
         entry = pickle.load(reader)
-    os.system('firefox %s' % entry['uri'])
+    os.system("firefox %s" % entry["uri"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dispatch_commands([bookmarks2dir, dir2bookmarks, open_ffurl])
 
 ######
