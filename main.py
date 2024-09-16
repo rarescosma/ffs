@@ -24,7 +24,7 @@ import datetime
 from argh import *
 
 print("----FFB2FS2FFB: FireFox Bookmarks to the File System and back")
-print("    See: http://github.com/sdvillal/ffb2fs2ffb")
+print("    See: https://github.com/sdvillal/ffb2fs2ffb")
 sys.stdout.flush()
 
 TEST_DIR = op.join(op.realpath(op.dirname(__file__)), "test-data")
@@ -51,14 +51,14 @@ def ensure_writable_dir(path):
 
 def slugify(value, max_filename_length=200):
     """Create a valid filename from a bookmark title by:
-      - Normalizing the string (see http://unicode.org/reports/tr15/)
+      - Normalizing the string (see https://unicode.org/reports/tr15/)
       - Converting it to lowercase
       - Removing non-alpha characters
       - Converting spaces to hyphens
     Adapted from:
-      - http://stackoverflow.com/questions/5574042/string-slugification-in-python
-      - http://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename-in-python
-    See too: http://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits.
+      - https://stackoverflow.com/questions/5574042/string-slugification-in-python
+      - https://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename-in-python
+    See too: https://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits.
     """
     value = str(value)
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
@@ -75,9 +75,7 @@ def prtime2datetime(prtime):
 
     Examples
     --------
-    >>> prtime = 1231857403576669
-    >>> dt = prtime2datetime(prtime)
-    >>> dt
+    >>> prtime2datetime(1231857403576669)
     datetime.datetime(2009, 1, 13, 14, 36, 43, 576669)
     """
     return datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=prtime)
@@ -109,8 +107,8 @@ def generate_container_dict(
     title=None,
     description=None,
     container_id=None,
-    dateAdded=None,
-    lastModified=None,
+    date_added=None,
+    last_modified=None,
     root=None,
     index=None,
     parent=None,
@@ -134,25 +132,22 @@ def is_container(node):
     return node.get("type", None) == "text/x-moz-place-container"
 
 
-def traverse_tree(root, nodef, with_parent: bool = False):
+def traverse_tree(root, _nodef, with_parent: bool = False):
     """DFS traversal of the bookmarks tree.
     If the nodef function has arity 2, the parent is passed to the function too.
     """
-    # args, _, _, _ = inspect.getargs(nodef)
     if not with_parent:
-
-        def traverse_without_parent(root):
-            nodef(root)
-            for child in root.get("children", ()):
+        def traverse_without_parent(_root):
+            _nodef(_root)
+            for child in _root.get("children", ()):
                 traverse_without_parent(child)
 
         traverse_without_parent(root)
     else:
-
-        def traverse_with_parent(root, parent):
-            nodef(root, parent)
-            for child in root.get("children", ()):
-                traverse_with_parent(child, root)
+        def traverse_with_parent(_root, parent):
+            _nodef(_root, parent)
+            for child in _root.get("children", ()):
+                traverse_with_parent(child, _root)
 
         traverse_with_parent(root, None)
 
@@ -231,8 +226,8 @@ def bookmarks2dir(
     def build_tree(entry, root_dir, seen_ids):
         """Traverses the FFs bookmark tree, mirroring its structure in the file-system."""
 
-        def check_id_uniqueness(entry):
-            entry_id = entry.get("id", None)
+        def check_id_uniqueness(_entry):
+            entry_id = _entry.get("id", None)
             if entry_id is None:
                 raise Exception("Found an entry without id!")
             if entry_id in seen_ids:
@@ -302,10 +297,10 @@ def dir2bookmarks(
         else:
             this_container = generate_container_dict(
                 title=op.basename(root_dir),
-                dateAdded=datetime2prtime(
+                date_added=datetime2prtime(
                     datetime.datetime.fromtimestamp(op.getmtime(root_dir))
                 ),
-                lastModified=datetime2prtime(
+                last_modified=datetime2prtime(
                     datetime.datetime.fromtimestamp(op.getctime(root_dir))
                 ),
             )
@@ -356,7 +351,7 @@ if __name__ == "__main__":
 #   - icons are not preserved, they are meant to be in the sqlite DB, do not bother
 #   - warn that at the moment first level directories cannot be created
 #   - make sure that special directories have the corresponding ID (seems it does not matter). Read it here
-#    * http://code.crapouillou.net/projects/chrome-syncplaces/wiki
+#    * https://code.crapouillou.net/projects/chrome-syncplaces/wiki
 #   - somebody looking for something similar:
-#    * http://stackoverflow.com/questions/2034373/python-cli-to-edit-firefox-bookmarks
+#    * https://stackoverflow.com/questions/2034373/python-cli-to-edit-firefox-bookmarks
 #######
