@@ -15,17 +15,16 @@ from copy import deepcopy
 import os
 import os.path as op
 import shutil
-import cPickle as pickle
+import pickle as pickle
 import unicodedata
 import json
 import re
 import sys
 import datetime
-import inspect
 from argh import *
 
-print '----FFB2FS2FFB: FireFox Bookmarks to the File System and back'
-print '    See: http://github.com/sdvillal/ffb2fs2ffb'
+print('----FFB2FS2FFB: FireFox Bookmarks to the File System and back')
+print('    See: http://github.com/sdvillal/ffb2fs2ffb')
 sys.stdout.flush()
 
 TEST_DIR = op.join(op.realpath(op.dirname(__file__)), 'test-data')
@@ -60,10 +59,10 @@ def slugify(value, max_filename_length=200):
       - http://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename-in-python
     See too: http://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits.
     """
-    value = unicode(value)
+    value = str(value)
     value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
-    value = unicode(re.sub('[-\s]+', '-', value))
+    value = str(re.sub('[^\w\s-]', '', str(value)).strip().lower())
+    value = str(re.sub('[-\s]+', '-', value))
     if len(value) > max_filename_length:
         return value[:max_filename_length]
     return value
@@ -121,7 +120,7 @@ def generate_container_dict(
     """Generates a container dictionary with the specified information."""
     translator = {'container_id': 'id'}
     container = {'type': 'text/x-moz-place-container'}
-    for key, val in locals().iteritems():
+    for key, val in locals().items():
         if not key in ('translator', 'container') and val is not None:
             container[translator.get(key, key)] = val
     return container
@@ -135,12 +134,12 @@ def is_container(node):
     return node.get('type', None) == 'text/x-moz-place-container'
 
 
-def traverse_tree(root, nodef):
+def traverse_tree(root, nodef, with_parent: bool = False):
     """DFS traversal of the bookmarks tree.
     If the nodef function has arity 2, the parent is passed to the function too.
     """
-    args, _, _, _ = inspect.getargspec(nodef)
-    if 1 == len(args):
+    # args, _, _, _ = inspect.getargs(nodef)
+    if not with_parent:
         def traverse_without_parent(root):
             nodef(root)
             for child in root.get('children', ()):
@@ -166,7 +165,7 @@ def present_ids(root, all_must_have_id=False, all_must_be_unique=False):
             raise Exception('Found a repeated ID! %s' % nid)
         nids.add(nid)
 
-    traverse_tree(root, add_id)
+    traverse_tree(root, add_id, with_parent=False)
     return nids
 
 
@@ -181,7 +180,7 @@ def uniquify_ids(root):
             node['parent'] = parent['id']
         last_assigned[0] += 1
 
-    traverse_tree(root, assign_id)
+    traverse_tree(root, assign_id, with_parent=True)
     return root
 
 
@@ -191,9 +190,9 @@ def present_keys(root, process_containers=True, process_bookmarks=True):
 
     def add_key(node):
         if process_containers and is_container(node) or process_bookmarks and is_bookmark(node):
-            keys.update(node.keys())
+            keys.update(list(node.keys()))
 
-    traverse_tree(root, add_key)
+    traverse_tree(root, add_key, with_parent=False)
     return keys
 
 ############################
@@ -205,16 +204,16 @@ def bookmarks2dir(bookmarks_file=TEST_BOOKMARKS_FILEPATH,
                   overwrite=False):
     """Mirrors a firefox bookmarks json file into the file-system, one dir per container, one file per bookmark."""
 
-    print 'Mirroring bookmarks from\n\t%s\nto\n\t%s'%(bookmarks_file, dest_dir)
+    print('Mirroring bookmarks from\n\t%s\nto\n\t%s'%(bookmarks_file, dest_dir))
 
     if not op.isfile(bookmarks_file):
         raise Exception('Cannot find bookmarks file: %s' % bookmarks_file)
 
     #Delete the root_dir
     if op.isdir(dest_dir):
-        print 'Warning: root dir \"%s\" already exists' % dest_dir
+        print('Warning: root dir \"%s\" already exists' % dest_dir)
     if delete_all_first and op.isdir(dest_dir):
-        print 'Removing the root dir \"%s\"' % dest_dir
+        print('Removing the root dir \"%s\"' % dest_dir)
         shutil.rmtree(dest_dir)
 
     def build_tree(entry, root_dir, seen_ids):
@@ -238,7 +237,7 @@ def bookmarks2dir(bookmarks_file=TEST_BOOKMARKS_FILEPATH,
         ensure_writable_dir(root_dir)
         children = entry.get('children', ())
         entry['children'] = ()
-        with open(container_file, 'w') as writer:
+        with open(container_file, 'wb') as writer:
             pickle.dump(entry, writer)
         #Process children
         for child in children:
@@ -249,17 +248,14 @@ def bookmarks2dir(bookmarks_file=TEST_BOOKMARKS_FILEPATH,
                 if child.get('children', None):
                     raise Exception('A moz-place node should have no children, but \"%s\" has' % child['title'])
                 ffurl = op.join(root_dir, node_filename(child) + '.ffurl')
-                with open(ffurl, 'w') as writer:
+                with open(ffurl, 'wb') as writer:
                     pickle.dump(child, writer)
-            else:
-                raise Exception('Unknown bookmark type %r for entry \"%s\"' % (child.get('type', 'unknown'),
-                                                                               child['title']))
 
     #Mirror the bookmarks structure into the hard disk
     with open(bookmarks_file) as reader:
         build_tree(json.load(reader), dest_dir, set())
 
-    print 'Done!'
+    print('Done!')
 
 ############################
 #---- Filesystem hierarchy -> firefox bookmarks
@@ -268,7 +264,7 @@ def dir2bookmarks(src_dir=TEST_DESTDIR_PATH,
                   dest_bookmarks_file=TEST_DESTBOOKMARKS_FILEPATH):
     """Takes a directory and mirrors its structure into firefox bookmarks json."""
 
-    print 'Mirroring bookmarks from\n\t%s\nto\n\t%s'%(src_dir, dest_bookmarks_file)
+    print('Mirroring bookmarks from\n\t%s\nto\n\t%s'%(src_dir, dest_bookmarks_file))
 
     def update_title(fn, entry):
         if op.basename(fn).partition('__')[0] != slugify(entry['title']):
@@ -279,7 +275,7 @@ def dir2bookmarks(src_dir=TEST_DESTDIR_PATH,
             raise Exception('%s should be a directory, but it is not' % root_dir)
         container_file = op.join(root_dir, CONTAINER_FILE_NAME)
         if op.exists(container_file):
-            with open(container_file) as reader:
+            with open(container_file, 'rb') as reader:
                 this_container = pickle.load(reader)
         else:
             this_container = generate_container_dict(
@@ -293,7 +289,7 @@ def dir2bookmarks(src_dir=TEST_DESTDIR_PATH,
             if op.isdir(fs_child):
                 ff_children.append(read_container(fs_child))
             elif fs_child.endswith('.ffurl'):
-                with open(fs_child) as reader:
+                with open(fs_child, 'rb') as reader:
                     bookmark = pickle.load(reader)
                     update_title(fs_child, bookmark)
                     ff_children.append(bookmark)
@@ -309,14 +305,14 @@ def dir2bookmarks(src_dir=TEST_DESTDIR_PATH,
                   separators=(',', ':'),
                   check_circular=True)
 
-    print 'Done!'
+    print('Done!')
 
 ############################
 #---- Open a pickled ffurl in firefox
 ############################
 def open_ffurl(ffurl):
     """Opens the URI in a .ffurl bookmark file inside the browser."""
-    with open(ffurl) as reader:
+    with open(ffurl, 'rb') as reader:
         entry = pickle.load(reader)
     os.system('firefox %s' % entry['uri'])
 
